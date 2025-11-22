@@ -26,10 +26,12 @@ func init() {
 
 // createShortcutWindows 在 Windows 上创建 .lnk 快捷方式。
 // targetPath: 快捷方式指向的目标文件或文件夹的绝对路径。
-// linkName: 用于配置文件和快捷方式文件名的名称 (不含 .lnk 后缀)。
+// linkName: 用于配置文件中的名称。
 // startMenuPathBase: 开始菜单程序文件夹的根路径。
-func createShortcutWindows(targetPath, linkName, startMenuPathBase string) (shortcutFilePath string, err error) {
-	shortcutFilePath = filepath.Join(startMenuPathBase, linkName+".lnk")
+// description: 快捷方式的描述信息，如果为空则使用默认描述。
+// displayName: 快捷方式文件的显示名称 (不含 .lnk 后缀)。
+func createShortcutWindows(targetPath, linkName, startMenuPathBase, description, displayName string) (shortcutFilePath string, err error) {
+	shortcutFilePath = filepath.Join(startMenuPathBase, displayName+".lnk")
 	targetPath, err = filepath.Abs(targetPath) // 确保目标路径是绝对路径
 	if err != nil {
 		return "", fmt.Errorf("无法获取目标 '%s' 的绝对路径: %w", targetPath, err)
@@ -88,7 +90,9 @@ func createShortcutWindows(targetPath, linkName, startMenuPathBase string) (shor
 	}
 
 	// 3. 设置描述 (可选)
-	description := fmt.Sprintf("由 synclink 管理的快捷方式，指向: %s", targetPath)
+	if description == "" {
+		description = fmt.Sprintf("由 synclink 管理的快捷方式，指向: %s", targetPath)
+	}
 	if _, err = oleutil.PutProperty(shortcut, "Description", description); err != nil {
 		util.WarningPrint("设置快捷方式 Description 失败: %v", err)
 	}
@@ -146,8 +150,10 @@ func relinkShortcutWindows(linkName, startMenuPathBase string, linkInfo config.L
 		util.WarningPrint("在重新链接前删除旧快捷方式 '%s' 时遇到问题: %v", shortcutFilePath, err)
 	}
 
-	// 2. 使用配置信息重新创建快捷方式
-	_, err = createShortcutWindows(linkInfo.OriginalPath, linkName, startMenuPathBase)
+	// 2. 使用配置信息重新创建快捷方式（使用配置中存储的描述）
+	// 从 SyncedPath 中提取原始的显示名称
+	displayName := strings.TrimSuffix(filepath.Base(linkInfo.SyncedPath), ".lnk")
+	_, err = createShortcutWindows(linkInfo.OriginalPath, linkName, startMenuPathBase, linkInfo.Description, displayName)
 	if err != nil {
 		return fmt.Errorf("重新创建快捷方式 '%s' 失败: %w", linkName, err)
 	}

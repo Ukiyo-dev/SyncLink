@@ -55,11 +55,17 @@ var listCmd = &cobra.Command{
 			displayPath = info.SyncedPath
 			if info.Shortcut {
 				linkType = "快捷方式"
+				// 简化开始菜单路径显示
 				if strings.Contains(info.SyncedPath, "Start Menu") {
 					displayPath = "开始菜单"
 				}
 			} else {
 				linkType = "符号链接"
+				// 简化同步目录路径显示
+				settings := cfg.GetSettings()
+				if settings.DefaultSyncPath != "" && strings.HasPrefix(info.SyncedPath, settings.DefaultSyncPath) {
+					displayPath = "同步目录"
+				}
 			}
 
 			createdAtStr := info.CreatedAt.Format("2006-01-02 15:04:05")

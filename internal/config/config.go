@@ -15,7 +15,7 @@ import (
 // ConfigFileName 是配置文件的名称。
 // 导出以便其他包需要时使用，尽管优先使用 GetConfigPath。
 const ConfigFileName = "config.json"
-const CurrentVersion = "1.0" // 定义配置结构的当前版本
+const CurrentVersion = "1.1" // 定义配置结构的当前版本（1.1: 添加 LinkInfo.Description 字段）
 
 // Settings 保存应用程序的一般设置。
 type Settings struct {
@@ -27,6 +27,7 @@ type LinkInfo struct {
 	Shortcut     bool      `json:"shortcut"`              // 如果这是快捷方式则为 true，如果是符号链接则为 false
 	OriginalPath string    `json:"original_path"`         // 文件/文件夹的原始位置
 	SyncedPath   string    `json:"synced_path,omitempty"` // 实际数据存储位置（仅针对符号链接）
+	Description  string    `json:"description,omitempty"` // 快捷方式的描述信息（仅针对快捷方式）
 	CreatedAt    time.Time `json:"created_at"`            // 链接创建的时间
 }
 
@@ -154,12 +155,19 @@ func LoadConfig() (*Config, error) {
 					loadErr = fmt.Errorf("解析配置文件 '%s' 失败: %w", cfgPath, err)
 					return
 				}
-				// TODO: 如果需要，添加版本检查和潜在的迁移逻辑
+				// 版本检查和迁移逻辑
 				if cfg.Version != CurrentVersion {
-					// 处理版本不匹配 - 可能迁移或警告用户
-					util.WarningPrint("配置文件版本不匹配（发现 '%s'，需要 '%s'），可能会出现兼容性问题。", cfg.Version, CurrentVersion)
-					// 现在，我们继续，但更新内存中的版本
-					cfg.Version = CurrentVersion // 或执行实际迁移
+					// 执行迁移
+					if err := migrateConfig(&cfg); err != nil {
+						util.WarningPrint("配置迁移失败: %v，将使用当前配置但版本已更新。\n", err)
+					} else {
+						fmt.Printf("配置已从版本 '%s' 迁移到 '%s'。\n", cfg.Version, CurrentVersion)
+					}
+					// 更新版本并保存
+					cfg.Version = CurrentVersion
+					if saveErr := saveConfigInternal(cfgPath, &cfg); saveErr != nil {
+						util.WarningPrint("保存迁移后的配置失败: %v\n", saveErr)
+					}
 				}
 				// 即使在 JSON 中为 null 也确保 Links 映射被初始化
 				if cfg.Links == nil {
@@ -181,6 +189,28 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return configInstance, nil
+}
+
+// migrateConfig 处理配置版本迁移
+func migrateConfig(cfg *Config) error {
+	// 当前只有从 1.0 到 1.1 的迁移
+	// 1.0 -> 1.1: 添加了 LinkInfo.Description 字段
+	// 由于 Description 是可选的（omitempty），旧配置会自动兼容
+	// 这里只需确保数据结构完整性
+	
+	if cfg.Version == "" || cfg.Version == "1.0" {
+		// 从 1.0 迁移到 1.1
+		// Description 字段会自动初始化为空字符串（零值）
+		// 不需要额外操作，因为使用了 omitempty 标签
+		return nil
+	}
+	
+	// 未来的版本迁移可以在这里添加
+	// if cfg.Version == "1.1" {
+	//     // 迁移到 1.2
+	// }
+	
+	return nil
 }
 
 // GetConfig 返回加载的配置实例。如果尚未加载，则触发 LoadConfig。

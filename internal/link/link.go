@@ -299,9 +299,11 @@ func RelinkSymbolicLink(linkName string) error {
 // CreateShortcutDelegate 是创建快捷方式的实际实现。
 // 需要在特定平台的 _windows.go 文件中实现。
 // targetPath: 快捷方式指向的目标文件/文件夹。
-// linkName: 在配置和快捷方式文件中使用的名称。
+// linkName: 在配置中使用的名称。
 // startMenuPathBase: 通常是 Start Menu Programs 目录。
-var CreateShortcutDelegate func(targetPath, linkName, startMenuPathBase string) (shortcutFilePath string, err error)
+// description: 快捷方式的描述信息。
+// displayName: 快捷方式文件的显示名称。
+var CreateShortcutDelegate func(targetPath, linkName, startMenuPathBase, description, displayName string) (shortcutFilePath string, err error)
 
 // RemoveShortcutDelegate 是移除快捷方式的实际实现。
 // linkName: 要移除的链接名称 (用于查找配置和快捷方式文件)。
@@ -318,7 +320,9 @@ var RelinkShortcutDelegate func(linkName, startMenuPathBase string, linkInfo con
 var GetStartMenuProgramsPathDelegate func() (string, error)
 
 // CreateLinkOrShortcut 根据参数决定是创建符号链接还是快捷方式。
-func CreateLinkOrShortcut(targetPath, linkName, syncPathBase string, isShortcut bool) error {
+// description: 快捷方式的描述信息 (仅在 isShortcut 为 true 时使用)。
+// shortcutDisplayName: 快捷方式文件的显示名称，为空则使用 linkName。
+func CreateLinkOrShortcut(targetPath, linkName, syncPathBase string, isShortcut bool, description, shortcutDisplayName string) error {
 	if isShortcut {
 		if CreateShortcutDelegate == nil || GetStartMenuProgramsPathDelegate == nil {
 			return errors.New("创建快捷方式的功能在此系统上不受支持或未正确初始化")
@@ -342,8 +346,23 @@ func CreateLinkOrShortcut(targetPath, linkName, syncPathBase string, isShortcut 
 			return fmt.Errorf("快捷方式的目标路径 '%s' 不存在", absTargetPath)
 		}
 
+		// 如果没有提供描述，尝试从文件中读取
+		if description == "" {
+			fileDesc := util.GetFileDescription(absTargetPath)
+			if fileDesc != "" {
+				description = fileDesc
+				fmt.Printf("从文件中读取到描述: %s\n", fileDesc)
+			}
+		}
+
+		// 确定快捷方式的显示名称
+		displayName := shortcutDisplayName
+		if displayName == "" {
+			displayName = linkName // 默认使用 linkName
+		}
+
 		// 调用特定平台的实现来创建快捷方式物理文件
-		shortcutFilePath, err := CreateShortcutDelegate(absTargetPath, linkName, startMenuPath)
+		shortcutFilePath, err := CreateShortcutDelegate(absTargetPath, linkName, startMenuPath, description, displayName)
 		if err != nil {
 			return err // CreateShortcutDelegate 应返回具体的错误信息
 		}
@@ -360,6 +379,7 @@ func CreateLinkOrShortcut(targetPath, linkName, syncPathBase string, isShortcut 
 			Shortcut:     true,
 			OriginalPath: absTargetPath,    // 快捷方式的目标
 			SyncedPath:   shortcutFilePath, // 对于快捷方式，我们将 SyncedPath 用于存储 .lnk 文件的路径
+			Description:  description,       // 保存用户指定的描述
 			CreatedAt:    time.Now(),
 		}
 

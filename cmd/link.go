@@ -12,9 +12,11 @@ import (
 )
 
 var (
-	linkName       string
-	syncPath       string
-	createShortcut bool
+	linkName            string
+	syncPath            string
+	createShortcut      bool
+	shortcutDescription string
+	shortcutName        string
 )
 
 // linkCmd represents the link command
@@ -30,7 +32,7 @@ var linkCmd = &cobra.Command{
   synclink link C:\Users\CurrentUser\AppData\Roaming\MyApp\config.json
   synclink link D:\PortableApps\my-app -n MyPortableApp
   synclink link "C:\Program Files\MyTool\tool.exe" --shortcut
-  synclink link "D:\Games\GameLauncher.exe" --shortcut -n MyGameLauncher`,
+  synclink link "D:\Games\GameLauncher.exe" --shortcut -n MyGameLauncher -d "快速启动我的游戏" --shortcut-name "我的游戏"`,
 	Args: cobra.ExactArgs(1), // 需要且仅需要一个参数: target_path
 	RunE: runLinkCommand,
 }
@@ -42,6 +44,8 @@ func init() {
 	linkCmd.Flags().StringVarP(&linkName, "name", "n", "", "指定链接的名称 (默认为目标路径的基本名称)")
 	linkCmd.Flags().StringVarP(&syncPath, "sync-path", "s", "", "指定同步目录的路径 (默认为配置中的 DefaultSyncPath)")
 	linkCmd.Flags().BoolVar(&createShortcut, "shortcut", false, "创建开始菜单快捷方式而不是符号链接")
+	linkCmd.Flags().StringVarP(&shortcutDescription, "description", "d", "", "快捷方式的描述信息 (仅在使用 --shortcut 时有效)")
+	linkCmd.Flags().StringVar(&shortcutName, "shortcut-name", "", "快捷方式文件的显示名称 (默认与链接名称相同，仅在使用 --shortcut 时有效)")
 
 }
 
@@ -90,5 +94,5 @@ func runLinkCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	// 3. 执行核心逻辑
-	return link.CreateLinkOrShortcut(targetPath, linkName, syncPathBase, createShortcut)
+	return link.CreateLinkOrShortcut(targetPath, linkName, syncPathBase, createShortcut, shortcutDescription, shortcutName)
 }

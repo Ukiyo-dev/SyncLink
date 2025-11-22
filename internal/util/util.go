@@ -8,10 +8,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall" // 用于检查跨设备链接错误
+	"syscall"
+	"unsafe"
 
 	"github.com/fatih/color"
 	"golang.org/x/sys/windows"
+)
+
+var (
+	version            = windows.NewLazySystemDLL("version.dll")
+	procVerQueryValueW = version.NewProc("VerQueryValueW")
 )
 
 // ConfigFileName 是配置文件的默认名称
@@ -333,4 +339,91 @@ func GetDefaultLinkName(p string) string {
 		name = name[:len(name)-4]
 	}
 	return name
+}
+
+// GetFileDescription 获取 Windows 可执行文件的文件描述信息。
+// 仅适用于 PE 文件（.exe, .dll 等）。
+// 如果文件没有版本信息或不是 PE 文件，返回空字符串。
+func GetFileDescription(filePath string) string {
+	// 确保是绝对路径
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return ""
+	}
+
+	// 检查文件是否存在且是 PE 文件
+	ext := strings.ToLower(filepath.Ext(absPath))
+	if ext != ".exe" && ext != ".dll" {
+		return ""
+	}
+
+	// 获取版本信息大小
+	size, err := windows.GetFileVersionInfoSize(absPath, nil)
+	if err != nil || size == 0 {
+		return ""
+	}
+
+	// 分配缓冲区并获取版本信息
+	data := make([]byte, size)
+	err = windows.GetFileVersionInfo(absPath, 0, size, unsafe.Pointer(&data[0]))
+	if err != nil {
+		return ""
+	}
+
+	// 查询字符串文件信息的语言和代码页
+	var langData uintptr
+	var langLen uint32
+	
+	// 查询翻译表 - 使用 syscall 直接调用
+	subBlock, _ := windows.UTF16PtrFromString(`\VarFileInfo\Translation`)
+	ret, _, _ := procVerQueryValueW.Call(
+		uintptr(unsafe.Pointer(&data[0])),
+		uintptr(unsafe.Pointer(subBlock)),
+		uintptr(unsafe.Pointer(&langData)),
+		uintptr(unsafe.Pointer(&langLen)),
+	)
+	
+	if ret == 0 || langLen == 0 || langData == 0 {
+		return ""
+	}
+
+	// 读取语言和代码页
+	translation := (*[2]uint16)(unsafe.Pointer(langData))
+	lang := translation[0]
+	codePage := translation[1]
+
+	// 构造 FileDescription 的查询路径
+	queryPathStr := fmt.Sprintf(`\StringFileInfo\%04x%04x\FileDescription`, lang, codePage)
+	queryPath, _ := windows.UTF16PtrFromString(queryPathStr)
+
+	// 查询 FileDescription
+	var descData uintptr
+	var descLen uint32
+	ret, _, _ = procVerQueryValueW.Call(
+		uintptr(unsafe.Pointer(&data[0])),
+		uintptr(unsafe.Pointer(queryPath)),
+		uintptr(unsafe.Pointer(&descData)),
+		uintptr(unsafe.Pointer(&descLen)),
+	)
+	
+	if ret == 0 || descLen == 0 || descData == 0 {
+		return ""
+	}
+
+	// 转换为 Go 字符串
+	// descData 指向一个以 null 结尾的 UTF-16 字符串
+	var u16s []uint16
+	for i := uint32(0); i < 1024; i++ { // 最多读取 1024 个字符
+		char := *(*uint16)(unsafe.Pointer(descData + uintptr(i*2)))
+		if char == 0 {
+			break
+		}
+		u16s = append(u16s, char)
+	}
+	
+	if len(u16s) > 0 {
+		return windows.UTF16ToString(u16s)
+	}
+
+	return ""
 }

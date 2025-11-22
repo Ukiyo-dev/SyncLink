@@ -1,5 +1,7 @@
 # SyncLink
 
+[中文文档](./README.zh-CN.md) | English
+
 **Inspired by Scoop's `persist` and `shortcut` feature, `synclink` helps you manage configuration files or any other folders/files by moving them to a central synchronized directory (like Dropbox, Google Drive, OneDrive, etc.) and creating symbolic links (symlinks) at the original location.**
 
 This is particularly useful for applications that store configuration data in non-standard locations (e.g., `%APPDATA%\Local`), which might not be covered by tools like Scoop's built-in persistence mechanism. `synclink` automates the process of moving these files and linking them back, facilitating easy backup and synchronization across multiple machines.
@@ -12,10 +14,12 @@ Tools like [uv](https://github.com/astral-sh/uv) might be installed via Scoop, b
 
 *   **Move & Link:** Moves target files or folders to a designated sync directory and creates a symbolic link at the original path.
 *   **Centralized Management:** Keeps track of all created links.
-*   **Shortcut Creation:** Optionally creates Start Menu shortcuts for linked items.
+*   **Shortcut Creation:** Optionally creates Start Menu shortcuts for linked items with customizable names and descriptions.
+*   **Auto-Extract File Description:** Automatically reads file description from `.exe` files when creating shortcuts.
 *   **Robust File Handling:** Includes progress indicators for cross-disk move operations (planned/implemented). Handles both files and folders. Files are stored in a dedicated `files` subdirectory within the sync path.
 *   **Link Maintenance:** Commands to list, remove (`unlink`), and recreate (`relink`) managed links and shortcuts.
 *   **Configuration:** Manage settings like the default sync path via a `config` command, similar to `git config`.
+*   **Version Migration:** Automatic configuration migration when updating to newer versions.
 
 ## Installation
 
@@ -50,7 +54,9 @@ synclink link <target_path> [-n <link_name>] [-s <sync_path>] [--shortcut] [--un
 *   `<target_path>`: (Required) The path to the file or folder you want to manage. After successful execution, this path will become a symbolic link pointing to the item in the sync directory.
 *   `-n, --name <link_name>`: (Optional) The name used to identify this link within `synclink`. Defaults to the base name of `<target_path>`.
 *   `-s, --sync-path <sync_path>`: (Optional) Specifies the parent directory *within* your main sync root where this specific item should be stored. Defaults to `DefaultSyncPath` (root of the sync directory). Folders are stored directly under this path, while files are stored in a `files` subfolder (e.g., `{sync_path}\files\{link_name}`).
-*   `--shortcut`: (Optional) If present, creates a shortcut for the *original* `<target_path>` in the Windows Start Menu in addition to creating the symlink.
+*   `--shortcut`: (Optional) If present, creates a shortcut for the *original* `<target_path>` in the Windows Start Menu.
+*   `-d, --description <text>`: (Optional) Custom description for the shortcut. If not specified, automatically extracts from the target file's version info (for `.exe` files).
+*   `--shortcut-name <name>`: (Optional) Display name for the shortcut file (different from the config name). Defaults to `link_name`.
 *   `--unlink`: (Optional) If present, `synclink` will *not* move the file or create a symlink. This flag is primarily used in conjunction with `--shortcut` to only create a Start Menu shortcut without managing the file/folder itself via symlinking.
 
 **Example:**
@@ -61,6 +67,12 @@ synclink link C:\Users\You\AppData\Local\uv
 
 # Move C:\MyTool\config.json, call the link 'mytool-config', store in 'configs' sub-sync dir
 synclink link C:\MyTool\config.json -n mytool-config -s %USERPROFILE%\OneDrive\SyncedConfigs
+
+# Create a shortcut with custom name and description (auto-extracts description if not provided)
+synclink link "C:\Program Files\VSCode\Code.exe" --shortcut -n vscode --shortcut-name "Visual Studio Code"
+
+# Create a shortcut with custom description
+synclink link "D:\Games\game.exe" --shortcut -n game -d "My Favorite Game" --shortcut-name "游戏启动器"
 
 # Only create a Start Menu shortcut for an executable, don't move or link it
 synclink link C:\ProgramFiles\MyApp\App.exe --shortcut --unlink -n MyAppLauncher
@@ -179,7 +191,7 @@ Key settings include:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit Pull Requests or open Issues on the [GitHub repository](https://github.com/your-username/synclink).
+Contributions are welcome! Please feel free to submit Pull Requests or open Issues on the [GitHub repository](https://github.com/UkiyoDevs/synclink).
 
 ## License
 
