@@ -57,7 +57,6 @@ synclink link <target_path> [-n <link_name>] [-s <sync_path>] [--shortcut] [-d <
 *   `--shortcut`：（可选）如果存在，在 Windows 开始菜单中为*原始* `<target_path>` 创建快捷方式。
 *   `-d, --description <text>`：（可选）快捷方式的自定义描述。如果未指定，会自动从目标文件的版本信息中提取（仅适用于 `.exe` 文件）。
 *   `--shortcut-name <name>`：（可选）快捷方式文件的显示名称（不同于配置名称）。默认为 `link_name`。
-*   `--unlink`：（可选）如果存在，`synclink` 将*不*移动文件或创建符号链接。此标志主要与 `--shortcut` 结合使用，仅创建开始菜单快捷方式，而不通过符号链接管理文件/文件夹本身。
 
 **示例：**
 

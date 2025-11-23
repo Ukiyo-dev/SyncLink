@@ -371,24 +371,24 @@ func GetFileDescription(filePath string) string {
 	}
 
 	// 查询字符串文件信息的语言和代码页
-	var langData uintptr
+	var langDataPtr unsafe.Pointer
 	var langLen uint32
-	
+
 	// 查询翻译表 - 使用 syscall 直接调用
 	subBlock, _ := windows.UTF16PtrFromString(`\VarFileInfo\Translation`)
 	ret, _, _ := procVerQueryValueW.Call(
 		uintptr(unsafe.Pointer(&data[0])),
 		uintptr(unsafe.Pointer(subBlock)),
-		uintptr(unsafe.Pointer(&langData)),
+		uintptr(unsafe.Pointer(&langDataPtr)),
 		uintptr(unsafe.Pointer(&langLen)),
 	)
-	
-	if ret == 0 || langLen == 0 || langData == 0 {
+
+	if ret == 0 || langLen == 0 || langDataPtr == nil {
 		return ""
 	}
 
 	// 读取语言和代码页
-	translation := (*[2]uint16)(unsafe.Pointer(langData))
+	translation := (*[2]uint16)(langDataPtr)
 	lang := translation[0]
 	codePage := translation[1]
 
@@ -397,30 +397,30 @@ func GetFileDescription(filePath string) string {
 	queryPath, _ := windows.UTF16PtrFromString(queryPathStr)
 
 	// 查询 FileDescription
-	var descData uintptr
+	var descDataPtr unsafe.Pointer
 	var descLen uint32
 	ret, _, _ = procVerQueryValueW.Call(
 		uintptr(unsafe.Pointer(&data[0])),
 		uintptr(unsafe.Pointer(queryPath)),
-		uintptr(unsafe.Pointer(&descData)),
+		uintptr(unsafe.Pointer(&descDataPtr)),
 		uintptr(unsafe.Pointer(&descLen)),
 	)
-	
-	if ret == 0 || descLen == 0 || descData == 0 {
+
+	if ret == 0 || descLen == 0 || descDataPtr == nil {
 		return ""
 	}
 
 	// 转换为 Go 字符串
-	// descData 指向一个以 null 结尾的 UTF-16 字符串
+	// descDataPtr 指向一个以 null 结尾的 UTF-16 字符串
 	var u16s []uint16
 	for i := uint32(0); i < 1024; i++ { // 最多读取 1024 个字符
-		char := *(*uint16)(unsafe.Pointer(descData + uintptr(i*2)))
+		char := *(*uint16)(unsafe.Pointer(uintptr(descDataPtr) + uintptr(i*2)))
 		if char == 0 {
 			break
 		}
 		u16s = append(u16s, char)
 	}
-	
+
 	if len(u16s) > 0 {
 		return windows.UTF16ToString(u16s)
 	}

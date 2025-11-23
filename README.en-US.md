@@ -57,7 +57,6 @@ synclink link <target_path> [-n <link_name>] [-s <sync_path>] [--shortcut] [--un
 *   `--shortcut`: (Optional) If present, creates a shortcut for the *original* `<target_path>` in the Windows Start Menu.
 *   `-d, --description <text>`: (Optional) Custom description for the shortcut. If not specified, automatically extracts from the target file's version info (for `.exe` files).
 *   `--shortcut-name <name>`: (Optional) Display name for the shortcut file (different from the config name). Defaults to `link_name`.
-*   `--unlink`: (Optional) If present, `synclink` will *not* move the file or create a symlink. This flag is primarily used in conjunction with `--shortcut` to only create a Start Menu shortcut without managing the file/folder itself via symlinking.
 
 **Example:**
 
